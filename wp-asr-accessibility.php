@@ -3,7 +3,7 @@
  * Plugin Name: ASR Accessibility (MVP)
  * Plugin URI:  https://example.org
  * Description: MVP pour intégration Speech->Text (Web Speech API, fallback upload -> processing via server whisper or remote provider). 
- * Version:     0.3.0
+ * Version:     0.3.1
  * Author:      Your Name
  * Text Domain: asr-accessibility
  */
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'ASR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ASR_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'ASR_VERSION', '0.3.0' );
+define( 'ASR_VERSION', '0.3.1' );
 
 require_once ASR_PLUGIN_DIR . 'includes/class-asr-admin.php';
 require_once ASR_PLUGIN_DIR . 'includes/class-asr-rest.php';
@@ -73,8 +73,10 @@ add_action( 'wp_enqueue_scripts', function() {
 add_action( 'admin_enqueue_scripts', function( $hook ) {
 	if ( strpos( $hook, 'asr-accessibility' ) !== false ) {
 		wp_enqueue_script( 'asr-admin', ASR_PLUGIN_URL . 'assets/js/admin-asr.js', array('jquery'), ASR_VERSION, true );
+		// CORRECTION: Ajouter les nonces pour les actions AJAX
 		wp_localize_script( 'asr-admin', 'ASRAdmin', array(
 			'testEndpointNonce' => wp_create_nonce( 'asr_test_endpoint' ),
+			'adminActionsNonce' => wp_create_nonce( 'asr_admin_actions' ),
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 		) );
 		wp_enqueue_style( 'asr-admin-css', ASR_PLUGIN_URL . 'assets/css/admin-asr.css', array(), ASR_VERSION );
@@ -120,7 +122,7 @@ add_action( 'admin_notices', function() {
 	}
 
 	$class = 'notice notice-warning is-dismissible';
-	$message = __( 'ASR Accessibility: Action Scheduler plugin is not active. For more reliable background job processing we recommend installing "Action Scheduler" (or activate WooCommerce, which includes it). The plugin will fall back to WP Cron but it is less robust.', 'asr-accessibility' );
+	$message = __( 'ASR Accessibility: Action Scheduler plugin is not active. For more reliable background job processing we recommend installing "Action Scheduler" (or activate WooCommerce, which includes it).', 'asr-accessibility' );
 
 	printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $message ) );
 } );
