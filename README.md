@@ -42,3 +42,14 @@ Prochaines améliorations recommandées
 - Implémenter WASM client pour usage privé (expérimental).
 
 ```
+
+## Sécurité et recommandations de déploiement
+
+### Pour les administrateurs de sites
+
+1. **Rate limiting** : Le plugin limite les uploads anonymes à 3/heure par IP. 
+   Pour un usage intensif, demandez aux utilisateurs de se connecter.
+
+2. **Clé API** : Ne stockez JAMAIS votre clé dans le code. Utilisez wp-config.php :
+   ```php
+   define('ASR_WHISPER_API_KEY', 'votre_clé');

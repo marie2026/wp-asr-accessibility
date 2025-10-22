@@ -1,3 +1,5 @@
+// (Passer via wp_localize_script dans le PHP)
+
 jQuery(function($){
   $('#asr-test-endpoint').on('click', function(e){
     e.preventDefault();
@@ -19,6 +21,7 @@ jQuery(function($){
 
   // Delete job
   $(document).on('click', '.asr-delete-job', function(e){
+    _ajax_nonce: ASRAdmin.adminActionsNonce
     e.preventDefault();
     if (!confirm('Supprimer ce job et le fichier audio ?')) return;
     var id = $(this).data('id');
@@ -30,6 +33,7 @@ jQuery(function($){
 
   // Rerun job
   $(document).on('click', '.asr-rerun-job', function(e){
+    _ajax_nonce: ASRAdmin.adminActionsNonce
     e.preventDefault();
     var id = $(this).data('id');
     $.post(ASRAdmin.ajaxUrl, { action: 'asr_rerun_job', id: id }, function(res){

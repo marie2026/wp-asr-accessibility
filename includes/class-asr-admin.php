@@ -25,7 +25,37 @@ class ASR_Admin {
 
 	public static function register_settings() {
 		register_setting( 'asr_settings', 'asr_mode' ); // 'auto'|'server'|'wasm'
-		register_setting( 'asr_settings', 'asr_whisper_url', array( 'sanitize_callback' => 'esc_url_raw' ) );
+
+	function asr_sanitize_whisper_url($url) {
+		$url = esc_url_raw($url, array('http', 'https'));
+		
+		if (empty($url)) return '';
+		
+		$parsed = parse_url($url);
+		if (!$parsed || !isset($parsed['host'])) {
+			return '';
+		}
+		
+		$host = $parsed['host'];
+		
+		// Bloquer les IPs locales/privées
+		if (filter_var($host, FILTER_VALIDATE_IP)) {
+			if (!filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+				add_settings_error('asr_whisper_url', 'invalid_ip', 'Les adresses IP privées ne sont pas autorisées');
+				return '';
+			}
+		}
+		
+		// Bloquer localhost
+		if (in_array(strtolower($host), array('localhost', '127.0.0.1', '::1', '0.0.0.0'))) {
+			add_settings_error('asr_whisper_url', 'localhost_blocked', 'Localhost n\'est pas autorisé');
+			return '';
+		}
+		
+		return $url;
+	}
+
+register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' => 'asr_sanitize_whisper_url'));
 		register_setting( 'asr_settings', 'asr_whisper_api_key', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 		register_setting( 'asr_settings', 'asr_default_language', array( 'sanitize_callback' => 'sanitize_text_field', 'default' => 'fr-FR' ) );
 		register_setting( 'asr_settings', 'asr_enable_wasm', array( 'sanitize_callback' => 'absint' ) );
@@ -232,6 +262,7 @@ class ASR_Admin {
 	}
 
 	public static function ajax_delete_job() {
+		check_ajax_referer( 'asr_admin_actions' ); // AJOUTER
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( 'Permission denied' );
 		}
@@ -249,6 +280,7 @@ class ASR_Admin {
 	}
 
 	public static function ajax_rerun_job() {
+    	check_ajax_referer( 'asr_admin_actions' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( 'Permission denied' );
 		}
@@ -271,4 +303,12 @@ class ASR_Admin {
 		update_post_meta( $id, '_asr_status', 'queued' );
 		wp_send_json_success( 'Job relancé' );
 	}
+
+
+	wp_localize_script('asr-admin-js', 'ASRAdmin', array(
+		'ajaxUrl' => admin_url('admin-ajax.php'),
+		'testEndpointNonce' => wp_create_nonce('asr_test_endpoint'),
+		'adminActionsNonce' => wp_create_nonce('asr_admin_actions') // AJOUTER
+	));
+
 }

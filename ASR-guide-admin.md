@@ -166,3 +166,13 @@ Conseils d’exploitation
 - Pour la quasi‑totalité des sites qui veulent zéro coût : laissez Web Speech API par défaut, désactivez l’envoi externe.
 - Pour confidentialité stricte sans serveur : proposer WASM en option, mais avertir sur UX.
 - Pour production fiable et maîtrise de la confidentialité : déployer whisper.cpp sur un petit VPS always‑on ; configurez quota et protections dans le plugin.
+
+---
+
+## Sécurisation de la clé API (RECOMMANDÉ)
+
+Pour éviter d'exposer votre clé API dans la base de données, ajoutez-la dans `wp-config.php` :
+
+```php
+define('ASR_WHISPER_API_KEY', 'votre_clé_secrète_ici');
+```

@@ -93,7 +93,12 @@ class ASR_Processor {
 		update_post_meta( $attachment_id, '_asr_started_at', current_time( 'mysql' ) );
 
 		$whisper_url = get_option( 'asr_whisper_url', '' );
-		$api_key     = get_option( 'asr_whisper_api_key', '' );
+		// Priorité : wp-config.php > option BDD
+		if (defined('ASR_WHISPER_API_KEY')) {
+			$api_key = ASR_WHISPER_API_KEY; // Plus sécurisé
+		} else {
+			$api_key = get_option('asr_whisper_api_key', '');
+		}
 
 		// If external sending is disabled, mark accordingly (even if whisper_url is set)
 		$allow_external = (int) get_option( 'asr_allow_external_send', 0 );
