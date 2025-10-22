@@ -26,36 +26,11 @@ class ASR_Admin {
 	public static function register_settings() {
 		register_setting( 'asr_settings', 'asr_mode' ); // 'auto'|'server'|'wasm'
 
-	function asr_sanitize_whisper_url($url) {
-		$url = esc_url_raw($url, array('http', 'https'));
-		
-		if (empty($url)) return '';
-		
-		$parsed = parse_url($url);
-		if (!$parsed || !isset($parsed['host'])) {
-			return '';
-		}
-		
-		$host = $parsed['host'];
-		
-		// Bloquer les IPs locales/privées
-		if (filter_var($host, FILTER_VALIDATE_IP)) {
-			if (!filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-				add_settings_error('asr_whisper_url', 'invalid_ip', 'Les adresses IP privées ne sont pas autorisées');
-				return '';
-			}
-		}
-		
-		// Bloquer localhost
-		if (in_array(strtolower($host), array('localhost', '127.0.0.1', '::1', '0.0.0.0'))) {
-			add_settings_error('asr_whisper_url', 'localhost_blocked', 'Localhost n\'est pas autorisé');
-			return '';
-		}
-		
-		return $url;
-	}
+		// CORRECTION: Fonction de sanitization améliorée pour éviter SSRF
+		register_setting('asr_settings', 'asr_whisper_url', array(
+			'sanitize_callback' => array( __CLASS__, 'sanitize_whisper_url' )
+		));
 
-register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' => 'asr_sanitize_whisper_url'));
 		register_setting( 'asr_settings', 'asr_whisper_api_key', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 		register_setting( 'asr_settings', 'asr_default_language', array( 'sanitize_callback' => 'sanitize_text_field', 'default' => 'fr-FR' ) );
 		register_setting( 'asr_settings', 'asr_enable_wasm', array( 'sanitize_callback' => 'absint' ) );
@@ -68,6 +43,50 @@ register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' =>
 		register_setting( 'asr_settings', 'asr_allow_unknown_duration_send', array( 'sanitize_callback' => 'absint', 'default' => 0 ) );
 	}
 
+	/**
+	 * CORRECTION: Sanitization améliorée avec validation de ports dangereux
+	 */
+	public static function sanitize_whisper_url( $url ) {
+		$url = esc_url_raw($url, array('http', 'https'));
+		
+		if (empty($url)) return '';
+		
+		$parsed = parse_url($url);
+		if (!$parsed || !isset($parsed['host'])) {
+			return '';
+		}
+		
+		$host = $parsed['host'];
+		
+		// Extraire le port
+		$port = isset($parsed['port']) ? $parsed['port'] : 
+				(isset($parsed['scheme']) && $parsed['scheme'] === 'https' ? 443 : 80);
+		
+		// Bloquer les ports dangereux (SSH, MySQL, PostgreSQL, Redis, etc.)
+		$dangerous_ports = array(22, 23, 25, 3306, 5432, 6379, 8080, 9200, 11211, 27017, 50070);
+		if (in_array($port, $dangerous_ports, true)) {
+			add_settings_error('asr_whisper_url', 'dangerous_port', 
+				'Port ' . $port . ' non autorisé pour des raisons de sécurité');
+			return '';
+		}
+		
+		// Bloquer les IPs locales/privées
+		if (filter_var($host, FILTER_VALIDATE_IP)) {
+			if (!filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+				add_settings_error('asr_whisper_url', 'invalid_ip', 'Les adresses IP privées ne sont pas autorisées');
+				return '';
+			}
+		}
+		
+		// Bloquer localhost et variantes
+		if (in_array(strtolower($host), array('localhost', '127.0.0.1', '::1', '0.0.0.0'), true)) {
+			add_settings_error('asr_whisper_url', 'localhost_blocked', 'Localhost n\'est pas autorisé');
+			return '';
+		}
+		
+		return $url;
+	}
+
 	public static function render_settings_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
@@ -78,7 +97,7 @@ register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' =>
 
 			<?php if ( ! function_exists( 'as_schedule_single_action' ) && ! function_exists( 'action_scheduler_schedule_single_action' ) ) : ?>
 				<div class="notice notice-warning">
-					<p><strong>Action Scheduler non détecté.</strong> Pour une meilleure fiabilité des tâches en arrière-plan, installez le plugin <em>Action Scheduler</em> ou activez <em>WooCommerce</em> (qui inclut Action Scheduler).</p>
+					<p><strong>Action Scheduler non détecté.</strong> Pour une meilleure fiabilité des tâches en arrière-plan, installez le plugin <em>Action Scheduler</em> ou activez <em>WooCommerce</em>.</p>
 				</div>
 			<?php endif; ?>
 			
@@ -107,7 +126,11 @@ register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' =>
 						<th scope="row"><label for="asr_whisper_api_key">Clé API du service (optionnelle)</label></th>
 						<td>
 							<input id="asr_whisper_api_key" name="asr_whisper_api_key" type="password" value="<?php echo esc_attr( get_option( 'asr_whisper_api_key', '' ) ); ?>" class="regular-text" />
-							<p class="description">Stockée en option dans wp_options (masquée). Pour plus de sécurité, définissez-la dans wp-config.php ou utilisez un secret manager.</p>
+							<p class="description">
+								<strong>Sécurité :</strong> Pour plus de sécurité, définez-la dans <code>wp-config.php</code> au lieu de la base de données :
+								<code>define('ASR_WHISPER_API_KEY', 'votre-clé-ici');</code><br/>
+								Le plugin privilégiera la constante si elle est définie.
+							</p>
 						</td>
 					</tr>
 					<tr>
@@ -246,12 +269,13 @@ register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' =>
 			wp_send_json_error( 'URL non configurée' );
 		}
 
-		// Small test ping (HEAD or GET)
+		// Small test ping (GET)
 		$args = array(
 			'timeout' => 15,
 			'headers' => array(
 				'Authorization' => 'Bearer ' . get_option( 'asr_whisper_api_key', '' ),
 			),
+			'sslverify' => true, // CORRECTION: Vérifier le certificat SSL
 		);
 		$res = wp_remote_get( $url, $args );
 		if ( is_wp_error( $res ) ) {
@@ -262,7 +286,8 @@ register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' =>
 	}
 
 	public static function ajax_delete_job() {
-		check_ajax_referer( 'asr_admin_actions' ); // AJOUTER
+		// CORRECTION: Vérifier le nonce
+		check_ajax_referer( 'asr_admin_actions' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( 'Permission denied' );
 		}
@@ -280,7 +305,8 @@ register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' =>
 	}
 
 	public static function ajax_rerun_job() {
-    	check_ajax_referer( 'asr_admin_actions' );
+		// CORRECTION: Vérifier le nonce
+		check_ajax_referer( 'asr_admin_actions' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( 'Permission denied' );
 		}
@@ -290,8 +316,8 @@ register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' =>
 		}
 		$file_path = get_attached_file( $id );
 		$file_url  = wp_get_attachment_url( $id );
-		if ( ! $file_path || ! file_exists( $file_path ) ) {
-			wp_send_json_error( 'Fichier introuvable' );
+		if ( ! $file_path || ! is_readable( $file_path ) ) { // CORRECTION: Vérifier la lisibilité
+			wp_send_json_error( 'Fichier introuvable ou non lisible' );
 		}
 		$job = array(
 			'attachment_id' => $id,
@@ -303,12 +329,4 @@ register_setting('asr_settings', 'asr_whisper_url', array('sanitize_callback' =>
 		update_post_meta( $id, '_asr_status', 'queued' );
 		wp_send_json_success( 'Job relancé' );
 	}
-
-
-	wp_localize_script('asr-admin-js', 'ASRAdmin', array(
-		'ajaxUrl' => admin_url('admin-ajax.php'),
-		'testEndpointNonce' => wp_create_nonce('asr_test_endpoint'),
-		'adminActionsNonce' => wp_create_nonce('asr_admin_actions') // AJOUTER
-	));
-
 }
