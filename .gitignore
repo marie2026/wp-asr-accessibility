@@ -1,0 +1,46 @@
+# WordPress core files (si présents)
+wp-config.php
+wp-config-local.php
+
+# Clés et secrets (IMPORTANT pour la sécurité)
+*.key
+*.pem
+.env
+.env.local
+secrets.php
+
+# Fichiers temporaires et logs
+*.log
+*.tmp
+*.temp
+debug.log
+error_log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Node modules (si tu utilises npm/yarn plus tard)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Fichiers de build (si tu compiles JS/CSS plus tard)
+/dist/
+/build/
+*.min.js.map
+*.min.css.map
+
+# Fichiers de test audio (optionnel)
+/test-audio/
+*.webm
+*.wav
+*.mp3
