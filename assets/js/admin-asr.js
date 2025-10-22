@@ -16,4 +16,25 @@ jQuery(function($){
       $('#asr-test-result').text('Erreur réseau: ' + xhr.status);
     });
   });
+
+  // Delete job
+  $(document).on('click', '.asr-delete-job', function(e){
+    e.preventDefault();
+    if (!confirm('Supprimer ce job et le fichier audio ?')) return;
+    var id = $(this).data('id');
+    $.post(ASRAdmin.ajaxUrl, { action: 'asr_delete_job', id: id }, function(res){
+      if (res.success) location.reload();
+      else alert('Erreur: ' + (res.data || 'unknown'));
+    });
+  });
+
+  // Rerun job
+  $(document).on('click', '.asr-rerun-job', function(e){
+    e.preventDefault();
+    var id = $(this).data('id');
+    $.post(ASRAdmin.ajaxUrl, { action: 'asr_rerun_job', id: id }, function(res){
+      if (res.success) location.reload();
+      else alert('Erreur: ' + (res.data || 'unknown'));
+    });
+  });
 });
