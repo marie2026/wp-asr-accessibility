@@ -143,9 +143,11 @@ class ASR_Processor {
 		}
 
 		// Send to whisper server (multipart/form-data)
-		if ( ! file_exists( $file_path ) ) {
+		// CORRECTION: Vérifier aussi la lisibilité du fichier
+		if ( ! file_exists( $file_path ) || ! is_readable( $file_path ) ) {
+			error_log( 'ASR Error: File not found or not readable for attachment ' . $attachment_id . ': ' . $file_path );
 			update_post_meta( $attachment_id, '_asr_status', 'error' );
-			update_post_meta( $attachment_id, '_asr_error', 'Fichier introuvable sur le serveur' );
+			update_post_meta( $attachment_id, '_asr_error', 'Fichier introuvable ou non lisible sur le serveur' );
 			return;
 		}
 
@@ -160,7 +162,13 @@ class ASR_Processor {
 		curl_setopt( $ch, CURLOPT_POST, true );
 		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
 		curl_setopt( $ch, CURLOPT_POSTFIELDS, $body );
+		
+		// CORRECTION: Options de sécurité SSL/TLS
+		curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
+		curl_setopt( $ch, CURLOPT_SSL_VERIFYHOST, 2 );
+		curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 10 );
 		curl_setopt( $ch, CURLOPT_TIMEOUT, 180 );
+		
 		$headers = array();
 		if ( ! empty( $api_key ) ) {
 			$headers[] = 'Authorization: Bearer ' . $api_key;
@@ -173,8 +181,10 @@ class ASR_Processor {
 		curl_close( $ch );
 
 		if ( $err ) {
+			// CORRECTION: Logger l'erreur complète, message générique à l'utilisateur
+			error_log( 'ASR cURL Error for attachment ' . $attachment_id . ': ' . $err );
 			update_post_meta( $attachment_id, '_asr_status', 'error' );
-			update_post_meta( $attachment_id, '_asr_error', 'cURL error: ' . $err );
+			update_post_meta( $attachment_id, '_asr_error', 'Erreur de communication avec le service. L\'administrateur a été notifié.' );
 			return;
 		}
 
@@ -203,13 +213,15 @@ class ASR_Processor {
 			}
 
 			// Unexpected response format
+			error_log( 'ASR Invalid response for attachment ' . $attachment_id . ': ' . $response );
 			update_post_meta( $attachment_id, '_asr_status', 'invalid_response' );
-			update_post_meta( $attachment_id, '_asr_response_raw', $response );
+			update_post_meta( $attachment_id, '_asr_error', 'Format de réponse invalide du service.' );
 			return;
 		}
 
 		// HTTP error
+		error_log( 'ASR HTTP Error ' . $code . ' for attachment ' . $attachment_id . ': ' . $response );
 		update_post_meta( $attachment_id, '_asr_status', 'error' );
-		update_post_meta( $attachment_id, '_asr_error', 'HTTP ' . $code . ' - ' . $response );
+		update_post_meta( $attachment_id, '_asr_error', 'Le service a retourné une erreur. L\'administrateur a été notifié.' );
 	}
 }
