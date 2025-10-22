@@ -77,7 +77,7 @@
           }
         }).catch(err => {
           console.error(err);
-          outEl.textContent = 'Erreur réseau.';
+          outEl.textContent = 'Erreur réseau : ' + (err.message || 'timeout ou erreur serveur');
         });
       };
       // record until user releases or for a default 5s demo
@@ -94,23 +94,34 @@
     });
   }
 
-  async function uploadBlob(blob, durationSec) {
-    const form = new FormData();
-    form.append('file', blob, 'recording.webm');
-    form.append('language', lang);
-    form.append('duration', durationSec); // IMPORTANT: send duration in seconds so server can charge quota
-    const res = await fetch(restUrl, {
-      method: 'POST',
-      body: form,
-      headers: {
-        'x-wp-nonce': nonce
-      },
-      credentials: 'include'
-    });
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status);
+  // CORRECTION: Ajouter timeout et meilleure gestion d'erreur
+  async function uploadBlob(blob, durationSec, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      const form = new FormData();
+      form.append('file', blob, 'recording.webm');
+      form.append('language', lang);
+      form.append('duration', durationSec); // IMPORTANT: send duration in seconds so server can charge quota
+      
+      const res = await fetch(restUrl, {
+        method: 'POST',
+        body: form,
+        headers: {
+          'x-wp-nonce': nonce
+        },
+        credentials: 'include',
+        signal: controller.signal
+      });
+      
+      if (!res.ok) {
+        throw new Error('HTTP ' + res.status + ': ' + res.statusText);
+      }
+      return res.json();
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return res.json();
   }
 
   function pollStatus(attachmentId, outEl, attempt) {
@@ -134,13 +145,13 @@
         outEl.textContent = 'Transcription en cours…';
         setTimeout(() => pollStatus(attachmentId, outEl, attempt + 1), 3000);
       } else if (data.status === 'error') {
-        outEl.textContent = 'Erreur traitement: ' + (data.error || 'unknown');
+        outEl.textContent = 'Erreur traitement : une erreur est survenue. Merci de réessayer.';
       } else if (data.status === 'needs_duration') {
         outEl.textContent = 'Durée inconnue côté serveur — transcription non effectuée. Administrateur doit relancer manuellement.';
       } else if (data.status === 'blocked_quota') {
         outEl.textContent = 'Quota dépassé — transcription non effectuée.';
       } else {
-        outEl.textContent = 'Statut: ' + data.status;
+        outEl.textContent = 'Statut : ' + data.status;
       }
     }).catch(err => {
       console.error(err);
