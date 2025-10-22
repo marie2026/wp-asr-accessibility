@@ -1,4 +1,4 @@
-// (Passer via wp_localize_script dans le PHP)
+// CORRECTION: Ajouter protection CSRF avec nonces
 
 jQuery(function($){
   $('#asr-test-endpoint').on('click', function(e){
@@ -21,11 +21,14 @@ jQuery(function($){
 
   // Delete job
   $(document).on('click', '.asr-delete-job', function(e){
-    _ajax_nonce: ASRAdmin.adminActionsNonce
     e.preventDefault();
     if (!confirm('Supprimer ce job et le fichier audio ?')) return;
     var id = $(this).data('id');
-    $.post(ASRAdmin.ajaxUrl, { action: 'asr_delete_job', id: id }, function(res){
+    $.post(ASRAdmin.ajaxUrl, { 
+      action: 'asr_delete_job', 
+      id: id,
+      _ajax_nonce: ASRAdmin.adminActionsNonce // CORRECTION: Ajouter nonce
+    }, function(res){
       if (res.success) location.reload();
       else alert('Erreur: ' + (res.data || 'unknown'));
     });
@@ -33,10 +36,13 @@ jQuery(function($){
 
   // Rerun job
   $(document).on('click', '.asr-rerun-job', function(e){
-    _ajax_nonce: ASRAdmin.adminActionsNonce
     e.preventDefault();
     var id = $(this).data('id');
-    $.post(ASRAdmin.ajaxUrl, { action: 'asr_rerun_job', id: id }, function(res){
+    $.post(ASRAdmin.ajaxUrl, { 
+      action: 'asr_rerun_job', 
+      id: id,
+      _ajax_nonce: ASRAdmin.adminActionsNonce // CORRECTION: Ajouter nonce
+    }, function(res){
       if (res.success) location.reload();
       else alert('Erreur: ' + (res.data || 'unknown'));
     });
