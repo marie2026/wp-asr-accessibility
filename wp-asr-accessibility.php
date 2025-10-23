@@ -2,9 +2,9 @@
 /**
  * Plugin Name: ASR Accessibility (MVP)
  * Plugin URI:  https://example.org
- * Description: MVP pour intégration Speech->Text (Web Speech API, fallback upload -> processing via server whisper or remote provider). 
- * Version:     0.3.1
- * Author:      Your Name
+ * Description: Plugin d'accessibilité Speech→Text avec choix de méthodes : Web Speech API, WASM, serveur du site, ou serveur local visiteur.
+ * Version:     0.4.0
+ * Author:      Copilot
  * Text Domain: asr-accessibility
  */
 
